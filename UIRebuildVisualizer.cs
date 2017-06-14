@@ -58,6 +58,7 @@ namespace DTUIRebuildVisualizer {
 		private readonly Dictionary<GameObject, CanvasGroup> canvasGroupMapping_ = new Dictionary<GameObject, CanvasGroup>();
 		private readonly Dictionary<CanvasGroup, float> canvasGroupLastDirtyTime_ = new Dictionary<CanvasGroup, float>();
 		private readonly Dictionary<GameObject, float> gameObjectLastDirtyTime_ = new Dictionary<GameObject, float>();
+		private readonly Dictionary<GameObject, float> parentGameObjectLastDirtyTime_ = new Dictionary<GameObject, float>();
 
 		private float lastUpdateTime_;
 		private bool visualizationEnabled_ = false;
@@ -166,6 +167,14 @@ namespace DTUIRebuildVisualizer {
 
 				canvasGroupLastDirtyTime_[canvasGroup] = now;
 				gameObjectLastDirtyTime_[graphic.gameObject] = now;
+				foreach (GameObject parent in graphic.gameObject.Parents()) {
+					parentGameObjectLastDirtyTime_[parent] = now;
+
+					// NOTE (darren): stop the highlight from going past parent canvas
+					if (graphic.canvas.gameObject == parent) {
+						break;
+					}
+				}
 			}
 		}
 
@@ -177,15 +186,26 @@ namespace DTUIRebuildVisualizer {
 			}
 
 			GameObject g = EditorUtility.InstanceIDToObject(guid) as GameObject;
-			if (g == null || !gameObjectLastDirtyTime_.ContainsKey(g)) {
+			if (g == null) {
+				return;
+			}
+
+			float lastDirtyTime = -1.0f;
+			if (gameObjectLastDirtyTime_.ContainsKey(g)) {
+				lastDirtyTime = gameObjectLastDirtyTime_[g];
+			} else if (parentGameObjectLastDirtyTime_.ContainsKey(g)) {
+				lastDirtyTime = parentGameObjectLastDirtyTime_[g];
+			}
+
+			if (lastDirtyTime <= 0.0f) {
 				return;
 			}
 
 			Color previousBackgroundColor = GUI.backgroundColor;
 
-			float lastDirtyTime = gameObjectLastDirtyTime_[g];
+			Color highlightColor = parentGameObjectLastDirtyTime_.ContainsKey(g) ? Color.yellow : Color.red;
 			if (lastDirtyTime >= lastUpdateTime_ - Mathf.Epsilon - 0.5f) {
-				GUI.backgroundColor = Color.cyan.WithAlpha(0.3f);
+				GUI.backgroundColor = highlightColor.WithAlpha(0.3f);
 				GUI.Box(drawRect, "");
 				EditorApplication.RepaintHierarchyWindow();
 			}

@@ -15,5 +15,13 @@ namespace DTUIRebuildVisualizer.Internal {
 
 			return component;
 		}
+
+		public static IEnumerable<GameObject> Parents(this GameObject g) {
+			GameObject iter = g;
+			while (iter != null && iter.transform.parent != null) {
+				iter = iter.transform.parent.gameObject;
+				yield return iter;
+			}
+		}
 	}
 }
